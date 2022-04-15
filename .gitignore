@@ -1,0 +1,6 @@
+.vs/
+Debug/
+Include/
+Libraries/
+tiny_obj_loader.h
+*.vcxproj*
