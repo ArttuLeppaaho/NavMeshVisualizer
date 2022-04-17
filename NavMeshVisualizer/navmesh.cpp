@@ -374,6 +374,12 @@ std::forward_list<Cell*> NavMesh::AStar(Cell* from, Cell* to) const
 	// Gather all processed cells for visualization
 	for (const std::pair<Cell*, PathNode>& pair : cellsToPathNodes)
 	{
+		// Don't add discovered cells that have not been processed yet
+		if (discovered.find((PathNode*)&pair.second) != discovered.end())
+		{
+			continue;
+		}
+
 		processedCellIndices.push_back(pair.first->index);
 	}
 
