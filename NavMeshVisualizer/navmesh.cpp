@@ -10,8 +10,6 @@
 #include "glm/gtx/projection.hpp"
 
 #include <iostream>
-#include <functional>
-#include <set>
 
 const glm::vec4 PATH_TRIANGLES_COLOR = glm::vec4(0.1f, 0.6f, 1.0f, 1.0f);
 const glm::vec4 PROCESSED_TRIANGLES_COLOR = glm::vec4(1.0f, 0.6f, 0.1f, 1.0f);
@@ -246,12 +244,16 @@ uint32_t NavMesh::GetTriangleIndexAtCursorPos(const glm::vec2& cursorPos, const 
 	return closestTriangleIndex;
 }
 
-std::forward_list<Cell*> NavMesh::GetPathBetweenCellIndices(const uint32_t& from, const uint32_t& to)
+std::forward_list<Cell*> NavMesh::GetPathBetweenCellIndices(const uint32_t& startCellIndex, const uint32_t& endCellIndex)
 {
-	Cell* startCell = from < cells_.size() ? &cells_[from] : nullptr;
-	Cell* endCell = to < cells_.size() ? &cells_[to] : nullptr;
+	// Get the cells corresponding to these cell indices
+	Cell* startCell = startCellIndex < cells_.size() ? &cells_[startCellIndex] : nullptr;
+	Cell* endCell = endCellIndex < cells_.size() ? &cells_[endCellIndex] : nullptr;
 
-	return AStar(startCell, endCell);
+	// Create a pathfinding task struct to hold data for this pathfinding query
+	PathfindingTask task = { startCell, endCell, nullptr,{}, CellPriorityQueue(ComparePathNodes) };
+
+	return AStar(task);
 }
 
 bool NavMesh::IsValid() const
@@ -269,113 +271,73 @@ float NavMesh::GetDistanceBetween(Cell* cellA, Cell* cellB)
 	return glm::length(cellA->centerPosition - cellB->centerPosition);
 }
 
-std::forward_list<Cell*> NavMesh::AStar(Cell* from, Cell* to) const
+void NavMesh::CreateOrUpdatePathNodeForCell(Cell* cell, PathNode* previousPathNode, PathfindingTask& task) const
 {
-	// Use PathNodes to attach path information to Cells. This way the Cells
-	// themselves do not need to store data related to specific pathfinding
-	// queries
-	std::map<Cell*, PathNode> cellsToPathNodes;
-	// Maintain a priority queue of discovered cells to determine which cells to process next
-	std::set<PathNode*, std::function<bool(PathNode*, PathNode*)>> discovered(ComparePathNodes);
+	// Calculate the distance from the start to the connected cell
+	float cellDistanceToStart = previousPathNode != nullptr
+		? previousPathNode->distanceToStart + GetDistanceBetween(previousPathNode->correspondingCell, cell)
+		: 0.0f;
 
-	if (from != nullptr && to != nullptr)
+	// Try to find an existing PathNode for the cell
+	auto existingPathNodeIt = task.cellsToPathNodes.find(cell);
+
+	// If no existing PathNode found
+	if (existingPathNodeIt == task.cellsToPathNodes.end())
 	{
-		// Create a PathNode for the cell at the start
-		cellsToPathNodes.insert({ from,{ nullptr, from, 0.0f, GetDistanceBetween(from, to) } });
+		// Create a new PathNode and add it to the priority queue
+		task.cellsToPathNodes.insert({ cell,
+		{
+			previousPathNode,
+			cell,
+			cellDistanceToStart,
+			cellDistanceToStart + GetDistanceBetween(cell, task.endCell)
+		}});
 
-		PathNode& startPathNode = cellsToPathNodes.at(from);
-
-		discovered.insert(&startPathNode);
+		task.discovered.insert(&task.cellsToPathNodes.at(cell));
 	}
-
-	PathNode* endPathNode = nullptr;
-
-	// Process PathNodes until no new ones are discovered and the entire search
-	// space has been explored
-	while (!discovered.empty())
+	else
 	{
-		// Pop the highest priority unprocessed node from the priority queue
-		auto highestPriorityUnprocessedNode = discovered.begin();
+		// PathNode already exists, fetch it
+		PathNode& connectedPathNode = existingPathNodeIt->second;
 
-		PathNode* current = *highestPriorityUnprocessedNode;
-
-		discovered.erase(highestPriorityUnprocessedNode);
-
-		// If the node is the goal node, the path has been found: stop the loop
-		if (current->correspondingCell == to)
+		// If the distance to the start is shorter through this cell,
+		// update the PathNode's distances and previous node
+		if (cellDistanceToStart < connectedPathNode.distanceToStart)
 		{
-			endPathNode = current;
+			// If the PathNode is currently in the priority queue,
+			// remove it and insert it back to update its priority
+			auto connectedPathNodeInDiscoveredIt = task.discovered.find(&connectedPathNode);
+			bool priorityQueueNeedsRefreshing = false;
 
-			break;
-		}
-
-		// Process each cell connected to the current cell
-		for (Cell* connectedCell : current->correspondingCell->connectedCells)
-		{
-			// Calculate the distance from the start to the connected cell
-			float connectedCellDistanceToStart = current->distanceToStart + GetDistanceBetween(current->correspondingCell, connectedCell);
-
-			// Try to find an existing PathNode for the connected cell
-			auto connectedPathNodeIt = cellsToPathNodes.find(connectedCell);
-
-			// If no existing PathNode found
-			if (connectedPathNodeIt == cellsToPathNodes.end())
+			if (connectedPathNodeInDiscoveredIt != task.discovered.end())
 			{
-				// Create a new PathNode and add it to the priority queue
-				cellsToPathNodes.insert({ connectedCell,
-					{
-						current,
-						connectedCell,
-						connectedCellDistanceToStart,
-						connectedCellDistanceToStart + GetDistanceBetween(connectedCell, to)
-					}});
-
-				discovered.insert(&cellsToPathNodes.at(connectedCell));
+				task.discovered.erase(connectedPathNodeInDiscoveredIt);
+				priorityQueueNeedsRefreshing = true;
 			}
-			else
+
+			connectedPathNode.previousNode = previousPathNode;
+			connectedPathNode.distanceToStart = cellDistanceToStart;
+			connectedPathNode.shortestPotentialPathLength = cellDistanceToStart + GetDistanceBetween(cell, task.endCell);
+
+			if (priorityQueueNeedsRefreshing)
 			{
-				// PathNode already exists, fetch it
-				PathNode& connectedPathNode = connectedPathNodeIt->second;
-
-				// If the distance to the start is shorter through this cell,
-				// update the PathNode's distances and previous node
-				if (connectedCellDistanceToStart < connectedPathNode.distanceToStart)
-				{
-					// If the PathNode is currently in the priority queue,
-					// remove it and insert it back to update the priority
-					auto connectedPathNodeInDiscoveredIt = discovered.find(&connectedPathNode);
-					bool priorityQueueNeedsRefreshing = false;
-
-					if (connectedPathNodeInDiscoveredIt != discovered.end())
-					{
-						discovered.erase(connectedPathNodeInDiscoveredIt);
-
-						priorityQueueNeedsRefreshing = true;
-					}
-
-					connectedPathNode.previousNode = current;
-					connectedPathNode.distanceToStart = connectedCellDistanceToStart;
-					connectedPathNode.shortestPotentialPathLength = connectedCellDistanceToStart + GetDistanceBetween(connectedCell, to);
-
-					if (priorityQueueNeedsRefreshing)
-					{
-						discovered.insert(&connectedPathNode);
-					}
-				}
+				task.discovered.insert(&connectedPathNode);
 			}
 		}
 	}
+}
 
-	// Pathfinding finished, collect the discovered path if one was found
+std::forward_list<Cell*> NavMesh::CollectPath(PathfindingTask& task) const
+{
 	std::forward_list<Cell*> pathCells;
 	std::vector<uint32_t> pathCellIndices;
 	std::vector<uint32_t> processedCellIndices;
 
 	// Gather all processed cells for visualization
-	for (const std::pair<Cell*, PathNode>& pair : cellsToPathNodes)
+	for (const std::pair<Cell*, PathNode>& pair : task.cellsToPathNodes)
 	{
 		// Don't add discovered cells that have not been processed yet
-		if (discovered.find((PathNode*)&pair.second) != discovered.end())
+		if (task.discovered.find((PathNode*)&pair.second) != task.discovered.end())
 		{
 			continue;
 		}
@@ -384,7 +346,7 @@ std::forward_list<Cell*> NavMesh::AStar(Cell* from, Cell* to) const
 	}
 
 	// Gather path cells
-	PathNode* pathNode = endPathNode;
+	PathNode* pathNode = task.endPathNode;
 
 	while (pathNode != nullptr)
 	{
@@ -399,15 +361,52 @@ std::forward_list<Cell*> NavMesh::AStar(Cell* from, Cell* to) const
 	renderer_->HighlightTriangles(processedCellIndices.data(), processedCellIndices.size(), PROCESSED_TRIANGLES_COLOR);
 	renderer_->HighlightTriangles(pathCellIndices.data(), pathCellIndices.size(), PATH_TRIANGLES_COLOR);
 
-	if (from != nullptr)
+	if (task.startCell != nullptr)
 	{
-		renderer_->HighlightTriangles(&from->index, 1, START_TRIANGLE_COLOR);
+		renderer_->HighlightTriangles(&task.startCell->index, 1, START_TRIANGLE_COLOR);
 	}
 
-	if (to != nullptr)
+	if (task.endCell != nullptr)
 	{
-		renderer_->HighlightTriangles(&to->index, 1, END_TRIANGLE_COLOR);
+		renderer_->HighlightTriangles(&task.endCell->index, 1, END_TRIANGLE_COLOR);
 	}
 
 	return pathCells;
+}
+
+std::forward_list<Cell*> NavMesh::AStar(PathfindingTask& task) const
+{
+	if (task.startCell != nullptr && task.endCell != nullptr)
+	{
+		CreateOrUpdatePathNodeForCell(task.startCell, nullptr, task);
+	}
+
+	// Process PathNodes until no new ones are discovered and the entire search
+	// space has been explored
+	while (!task.discovered.empty())
+	{
+		// Pop the highest priority unprocessed node from the priority queue
+		auto highestPriorityUnprocessedNode = task.discovered.begin();
+
+		PathNode* nodeToProcess = *highestPriorityUnprocessedNode;
+
+		task.discovered.erase(highestPriorityUnprocessedNode);
+
+		// If the node is the goal node, the path has been found: stop the loop
+		if (nodeToProcess->correspondingCell == task.endCell)
+		{
+			task.endPathNode = nodeToProcess;
+
+			break;
+		}
+
+		// Process each cell connected to the current cell
+		for (Cell* connectedCell : nodeToProcess->correspondingCell->connectedCells)
+		{
+			CreateOrUpdatePathNodeForCell(connectedCell, nodeToProcess, task);
+		}
+	}
+
+	// Pathfinding finished, collect the discovered path if one was found
+	return CollectPath(task);
 }

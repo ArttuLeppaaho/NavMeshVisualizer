@@ -53,9 +53,9 @@ Window::Window() : valid_(true)
 	// Create GLFW window
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
 	glfwWindow_ = glfwCreateWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Navigation Mesh Visualizer", NULL, NULL);
 
@@ -87,6 +87,12 @@ Window::Window() : valid_(true)
 
 		return;
 	}
+
+	// Set miscellaneous OpenGL parameters for a better looking view
+	glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_DEPTH_TEST);
 
 	// Compile shaders
 	const int vertexShaderSourceSize = static_cast<int>(VERTEX_SHADER_SOURCE.size());
@@ -146,12 +152,6 @@ Window::Window() : valid_(true)
 	glDeleteShader(fragmentShader);
 
 	glUseProgram(shaderProgram_);
-
-	// Set miscellaneous OpenGL parameters
-	glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_DEPTH_TEST);
 
 	perspectiveProjection_ = GetPerspectiveProjection(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
 

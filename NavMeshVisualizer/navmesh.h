@@ -11,6 +11,9 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <forward_list>
+#include <map>
+#include <set>
+#include <functional>
 
 class NavMeshRenderer;
 
@@ -25,7 +28,7 @@ public:
 	// Gets the triangle at the given cursor position and using the given model-view-projection matrix as the camera.
 	uint32_t GetTriangleIndexAtCursorPos(const glm::vec2& cursorPos, const glm::mat4& modelViewProjection);
 	// Calculates the shortest path between the given cells if one exists. Returns the cells that make up the path.
-	std::forward_list<Cell*> GetPathBetweenCellIndices(const uint32_t& from, const uint32_t& to);
+	std::forward_list<Cell*> GetPathBetweenCellIndices(const uint32_t& startCellIndex, const uint32_t& endCellIndex);
 	// Returns true if the NavMesh has initialized correctly and can be used.
 	bool IsValid() const;
 protected:
@@ -40,6 +43,18 @@ protected:
 		float distanceToStart;
 		// The shortest possible path length that can be found through this node.
 		float shortestPotentialPathLength;
+	};
+
+	// Shorten the long type name for clarity
+	using CellPriorityQueue = std::set<PathNode*, std::function<bool(NavMesh::PathNode*, NavMesh::PathNode*)>>;
+
+	struct PathfindingTask
+	{
+		Cell* startCell;
+		Cell* endCell;
+		PathNode* endPathNode;
+		std::map<Cell*, PathNode> cellsToPathNodes;
+		CellPriorityQueue discovered;
 	};
 
 	// The vertices this navigation mesh consists of.
@@ -60,8 +75,12 @@ protected:
 	static bool ComparePathNodes(PathNode* nodeA, PathNode* nodeB);
 	// Calculates the distance between the given cells.
 	static float GetDistanceBetween(Cell* cellA, Cell* cellB);
+
+	// Creates a PathNode for the given Cell and adds it to the given map and priority queue.
+	void CreateOrUpdatePathNodeForCell(Cell* cell, PathNode* previousPathNode, PathfindingTask& task) const;
+	std::forward_list<Cell*> NavMesh::CollectPath(PathfindingTask& task) const;
 	// A* algorithm implementation for finding a path between the given cells.
-	std::forward_list<Cell*> AStar(Cell* from, Cell* to) const;
+	std::forward_list<Cell*> AStar(PathfindingTask& task) const;
 };
 
 #endif // NAVMESH_H
