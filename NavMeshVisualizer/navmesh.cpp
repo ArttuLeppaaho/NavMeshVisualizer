@@ -274,7 +274,9 @@ float NavMesh::GetDistanceBetween(Cell* cellA, Cell* cellB)
 
 void NavMesh::CreateOrUpdatePathNodeForCell(Cell* cell, PathNode* previousPathNode, PathfindingTask& task) const
 {
-	// Calculate the distance from the start to the connected cell
+	// Calculate the distance from the start to the connected cell. If
+	// previousPathNode is nullptr then this is the first cell and the distance
+	// is zero
 	float cellDistanceToStart = previousPathNode != nullptr
 		? previousPathNode->distanceToStart + GetDistanceBetween(previousPathNode->correspondingCell, cell)
 		: 0.0f;
@@ -388,16 +390,13 @@ std::forward_list<Cell*> NavMesh::AStar(PathfindingTask& task) const
 	{
 		// Pop the highest priority unprocessed node from the priority queue
 		auto highestPriorityUnprocessedNode = task.discovered.begin();
-
 		PathNode* nodeToProcess = *highestPriorityUnprocessedNode;
-
 		task.discovered.erase(highestPriorityUnprocessedNode);
 
 		// If the node is the goal node, the path has been found: stop the loop
 		if (nodeToProcess->correspondingCell == task.endCell)
 		{
 			task.endPathNode = nodeToProcess;
-
 			break;
 		}
 

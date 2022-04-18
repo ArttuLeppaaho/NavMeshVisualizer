@@ -46,15 +46,19 @@ protected:
 		float shortestPotentialPathLength;
 	};
 
-	// Shorten the long type name for clarity
-	using CellPriorityQueue = std::set<PathNode*, std::function<bool(NavMesh::PathNode*, NavMesh::PathNode*)>>;
+	using CellPriorityQueue = std::set<PathNode*, std::function<bool(PathNode*, PathNode*)>>;
 
 	struct PathfindingTask
 	{
+		// The start cell of this pathfinding task.
 		Cell* startCell;
+		// The end goal cell of this pathfinding task.
 		Cell* endCell;
+		// The PathNode corresponding to the end cell if one has been found.
 		PathNode* endPathNode;
+		// The PathNodes that have been created for this pathfinding task mapped to the corresponding Cells.
 		std::map<Cell*, PathNode> cellsToPathNodes;
+		// A priority queue of PathNodes that have been discovered but not yet processed.
 		CellPriorityQueue discovered;
 	};
 
@@ -79,6 +83,7 @@ protected:
 
 	// Creates a PathNode for the given Cell and adds it to the given map and priority queue.
 	void CreateOrUpdatePathNodeForCell(Cell* cell, PathNode* previousPathNode, PathfindingTask& task) const;
+	// Collects the nodes of a finished PathfindingTask.
 	std::forward_list<Cell*> NavMesh::CollectPath(PathfindingTask& task) const;
 	// A* algorithm implementation for finding a path between the given cells.
 	std::forward_list<Cell*> AStar(PathfindingTask& task) const;
