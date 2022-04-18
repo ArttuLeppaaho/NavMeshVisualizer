@@ -3,8 +3,9 @@
 
 // This class implements the navigation mesh data structure and the A*
 // pathfinding algorithm that is used to navigate within it.
-// Author: Arttu Leppäaho arttu.leppaaho@hotmail.com
+// Original author: Arttu Leppäaho arttu.leppaaho@hotmail.com
 // Date: 4.2022
+// Licensed under the MIT license
 
 #include "cell.h"
 

@@ -3,8 +3,9 @@
 
 // This struct represents a navigation mesh cell. Cells always belong to a
 // NavMesh and they're not meant to be used alone.
-// Author: Arttu Leppäaho arttu.leppaaho@hotmail.com
+// Original author: Arttu Leppäaho arttu.leppaaho@hotmail.com
 // Date: 4.2022
+// Licensed under the MIT license
 
 #include <glm/glm.hpp>
 

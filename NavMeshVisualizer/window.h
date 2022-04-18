@@ -4,8 +4,9 @@
 // This class handles the window that renders the navigation mesh. This
 // includes initializing GLFW and GLAD, handling input, handling window
 // events, controlling the camera and initializing OpenGL basics.
-// Author: Arttu Leppäaho arttu.leppaaho@hotmail.com
+// Original author: Arttu Leppäaho arttu.leppaaho@hotmail.com
 // Date: 4.2022
+// Licensed under the MIT license
 
 #include <glad/glad.h> 
 #include <GLFW/glfw3.h>

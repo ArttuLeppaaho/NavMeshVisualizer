@@ -3,8 +3,9 @@
 
 // This class renders the navigation mesh and allows highlighting specific
 // triangles with different colors.
-// Author: Arttu Leppäaho arttu.leppaaho@hotmail.com
+// Original author: Arttu Leppäaho arttu.leppaaho@hotmail.com
 // Date: 4.2022
+// Licensed under the MIT license
 
 #include <glm/glm.hpp>
 #include <vector>

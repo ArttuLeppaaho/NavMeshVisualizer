@@ -1,5 +1,6 @@
-// Author: Arttu Leppäaho arttu.leppaaho@hotmail.com
+// Original author: Arttu Leppäaho arttu.leppaaho@hotmail.com
 // Date: 4.2022
+// Licensed under the MIT license
 
 #include "navmeshrenderer.h"
 #include "window.h"
