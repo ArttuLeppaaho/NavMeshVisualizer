@@ -39,7 +39,7 @@ protected:
 		// The previous node leading towards the start of the path.
 		PathNode* previousNode;
 		// The navigation mesh cell that this PathNode represents.
-		Cell* correspondingCell;
+		Cell* cell;
 		// The distance to the start of the path from this node.
 		float distanceToStart;
 		// The shortest possible path length that can be found through this node.

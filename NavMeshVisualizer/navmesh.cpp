@@ -254,6 +254,12 @@ std::forward_list<Cell*> NavMesh::GetPathBetweenCellIndices(const uint32_t& star
 	// Create a pathfinding task struct to hold data for this pathfinding query
 	PathfindingTask task = { startCell, endCell, nullptr,{}, CellPriorityQueue(ComparePathNodes) };
 
+	if (task.startCell == nullptr || task.endCell == nullptr)
+	{
+		// Start cell or end cell not defined, just return an empty path
+		return CollectPath(task);
+	}
+
 	return AStar(task);
 }
 
@@ -278,7 +284,7 @@ void NavMesh::CreateOrUpdatePathNodeForCell(Cell* cell, PathNode* previousPathNo
 	// previousPathNode is nullptr then this is the first cell and the distance
 	// is zero
 	float cellDistanceToStart = previousPathNode != nullptr
-		? previousPathNode->distanceToStart + GetDistanceBetween(previousPathNode->correspondingCell, cell)
+		? previousPathNode->distanceToStart + GetDistanceBetween(previousPathNode->cell, cell)
 		: 0.0f;
 
 	// Try to find an existing PathNode for the cell
@@ -353,8 +359,8 @@ std::forward_list<Cell*> NavMesh::CollectPath(PathfindingTask& task) const
 
 	while (pathNode != nullptr)
 	{
-		pathCells.push_front(pathNode->correspondingCell);
-		pathCellIndices.push_back(pathNode->correspondingCell->index);
+		pathCells.push_front(pathNode->cell);
+		pathCellIndices.push_back(pathNode->cell->index);
 
 		pathNode = pathNode->previousNode;
 	}
@@ -379,34 +385,32 @@ std::forward_list<Cell*> NavMesh::CollectPath(PathfindingTask& task) const
 
 std::forward_list<Cell*> NavMesh::AStar(PathfindingTask& task) const
 {
-	if (task.startCell != nullptr && task.endCell != nullptr)
-	{
-		CreateOrUpdatePathNodeForCell(task.startCell, nullptr, task);
-	}
+	// Create PathNode for start cell
+	CreateOrUpdatePathNodeForCell(task.startCell, nullptr, task);
 
-	// Process PathNodes until no new ones are discovered and the entire search
-	// space has been explored
+	// Process PathNodes until no new ones are discovered
 	while (!task.discovered.empty())
 	{
-		// Pop the highest priority unprocessed node from the priority queue
+		// Pop the highest priority node from the priority queue
 		auto highestPriorityUnprocessedNode = task.discovered.begin();
-		PathNode* nodeToProcess = *highestPriorityUnprocessedNode;
+		PathNode* node = *highestPriorityUnprocessedNode;
 		task.discovered.erase(highestPriorityUnprocessedNode);
 
-		// If the node is the goal node, the path has been found: stop the loop
-		if (nodeToProcess->correspondingCell == task.endCell)
+		// If the node is the goal node, the path has been found
+		if (node->cell == task.endCell)
 		{
-			task.endPathNode = nodeToProcess;
+			task.endPathNode = node;
 			break;
 		}
 
 		// Process each cell connected to the current cell
-		for (Cell* connectedCell : nodeToProcess->correspondingCell->connectedCells)
+		for (Cell* connectedCell : node->cell->connectedCells)
 		{
-			CreateOrUpdatePathNodeForCell(connectedCell, nodeToProcess, task);
+			CreateOrUpdatePathNodeForCell(connectedCell, node, task);
 		}
 	}
 
-	// Pathfinding finished, collect the discovered path if one was found
+	// Pathfinding finished, collect the path if one was found
 	return CollectPath(task);
 }
+
