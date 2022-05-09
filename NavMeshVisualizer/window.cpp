@@ -521,6 +521,11 @@ void Window::MouseButtonCallback(GLFWwindow* glfwWindow, int button, int action,
 
 void Window::WindowSizeCallback(GLFWwindow* glfwWindow, int width, int height)
 {
+	if (width == 0 || height == 0)
+	{
+		return;
+	}
+
 	Window* window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
 
 	// Change perspective projection matrix and viewport to match new window size
