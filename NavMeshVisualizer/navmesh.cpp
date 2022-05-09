@@ -11,6 +11,7 @@
 #include "glm/gtx/projection.hpp"
 
 #include <iostream>
+#include <chrono>
 
 const glm::vec4 PATH_TRIANGLES_COLOR = glm::vec4(0.1f, 0.6f, 1.0f, 1.0f);
 const glm::vec4 PROCESSED_TRIANGLES_COLOR = glm::vec4(1.0f, 0.6f, 0.1f, 1.0f);
@@ -252,7 +253,7 @@ std::forward_list<Cell*> NavMesh::GetPathBetweenCellIndices(const uint32_t& star
 	Cell* endCell = endCellIndex < cells_.size() ? &cells_[endCellIndex] : nullptr;
 
 	// Create a pathfinding task struct to hold data for this pathfinding query
-	PathfindingTask task = { startCell, endCell, nullptr,{}, CellPriorityQueue(ComparePathNodes) };
+	PathfindingTask task = { startCell, endCell, nullptr, {}, CellPriorityQueue(ComparePathNodes) };
 
 	if (task.startCell == nullptr || task.endCell == nullptr)
 	{
@@ -365,6 +366,17 @@ std::forward_list<Cell*> NavMesh::CollectPath(PathfindingTask& task) const
 		pathNode = pathNode->previousNode;
 	}
 
+	if (pathCellIndices.size() != 0)
+	{
+		std::cout << "Discovered path is " << pathCellIndices.size() << " cells long. "
+			<< processedCellIndices.size() << " cells processed in total" << std::endl;
+	}
+	else if (processedCellIndices.size() != 0)
+	{
+		std::cout << "Path not found. "
+			<< processedCellIndices.size() << " cells processed in total" << std::endl;
+	}
+
 	// Highlight interesting triangles with different colors
 	renderer_->ClearHighlightedTriangles();
 	renderer_->HighlightTriangles(processedCellIndices.data(), processedCellIndices.size(), PROCESSED_TRIANGLES_COLOR);
@@ -388,6 +400,8 @@ std::forward_list<Cell*> NavMesh::AStar(PathfindingTask& task) const
 	// Create PathNode for start cell
 	CreateOrUpdatePathNodeForCell(task.startCell, nullptr, task);
 
+	auto timerStart = std::chrono::steady_clock::now();
+
 	// Process PathNodes until no new ones are discovered
 	while (!task.discovered.empty())
 	{
@@ -409,6 +423,13 @@ std::forward_list<Cell*> NavMesh::AStar(PathfindingTask& task) const
 			CreateOrUpdatePathNodeForCell(connectedCell, node, task);
 		}
 	}
+
+	// Print execution time
+	auto timerEnd = std::chrono::steady_clock::now();
+
+	std::cout << std::endl << "Pathfinding finished in "
+		<< std::chrono::duration_cast<std::chrono::microseconds>(timerEnd - timerStart).count()
+		<< " microseconds" << std::endl;
 
 	// Pathfinding finished, collect the path if one was found
 	return CollectPath(task);
